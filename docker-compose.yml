@@ -8,11 +8,10 @@ services:
       - "8000:8000"
     volumes:
       - ./models:/app/models
-      - ./app:/app
     environment:
-      - MODEL_PATH=/app/models/predictor.keras
-      - SCALER_PATH=/app/models/scaler.pkl
+      - MODEL_PATH=/app/models/predictor.joblib
       - CONFIG_PATH=/app/models/model_config.json
+      - REFERENCE_PROFILE_PATH=/app/models/reference_profile.json
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]

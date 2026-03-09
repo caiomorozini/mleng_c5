@@ -8,10 +8,9 @@ RUN apt-get update && apt-get install -y \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-COPY pyproject.toml ./
+COPY requirements.txt ./
 
-RUN pip install --no-cache-dir uv && \
-    uv pip install --system -r pyproject.toml
+RUN pip install --no-cache-dir -r requirements.txt
 
 COPY app/ ./app/
 COPY src/ ./src/
@@ -20,9 +19,9 @@ COPY models/ ./models/
 
 EXPOSE 8000
 
-ENV MODEL_PATH=/app/models/predictor.keras
-ENV SCALER_PATH=/app/models/scaler.pkl
+ENV MODEL_PATH=/app/models/predictor.joblib
 ENV CONFIG_PATH=/app/models/model_config.json
+ENV REFERENCE_PROFILE_PATH=/app/models/reference_profile.json
 ENV PYTHONPATH=/app
 
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \

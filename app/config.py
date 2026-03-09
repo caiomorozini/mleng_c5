@@ -1,52 +1,55 @@
+from __future__ import annotations
+
 import os
-import pickle
-import json
-from tensorflow import keras
+from pathlib import Path
+
+import pandas as pd
+
+from src.utils import load_joblib, load_json, setup_logger
 
 
 class ModelConfig:
-    """Gerenciador de configuração e artefatos do modelo"""
+    """Gerenciador de configuração e artefatos do modelo."""
 
     def __init__(self):
-        BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        base_dir = Path(__file__).resolve().parents[1]
 
-        self.MODEL_PATH = os.getenv(
-            "MODEL_PATH", os.path.join(BASE_DIR, "models", "predictor.keras")
+        self.model_path = Path(
+            os.getenv("MODEL_PATH", str(base_dir / "models" / "predictor.joblib"))
         )
-        self.SCALER_PATH = os.getenv(
-            "SCALER_PATH", os.path.join(BASE_DIR, "models", "scaler.pkl")
+        self.config_path = Path(
+            os.getenv("CONFIG_PATH", str(base_dir / "models" / "model_config.json"))
         )
-        self.CONFIG_PATH = os.getenv(
-            "CONFIG_PATH", os.path.join(BASE_DIR, "models", "model_config.json")
+        self.reference_profile_path = Path(
+            os.getenv(
+                "REFERENCE_PROFILE_PATH",
+                str(base_dir / "models" / "reference_profile.json"),
+            )
         )
 
+        self.logger = setup_logger("api")
         self.model = None
-        self.scaler = None
         self.config = None
+        self.reference_profile = None
+        self.recent_inputs: list[dict] = []
+        self.max_recent_inputs = 1500
 
     def load_artifacts(self):
-        """Carrega modelo, scaler e configurações"""
-        try:
-            self.model = keras.models.load_model(self.MODEL_PATH)
-            print(f"✓ Modelo carregado: {self.MODEL_PATH}")
+        self.model = load_joblib(self.model_path)
+        self.config = load_json(self.config_path)
+        self.reference_profile = load_json(self.reference_profile_path)
+        self.logger.info("Modelo carregado de %s", self.model_path)
 
-            with open(self.SCALER_PATH, "rb") as f:
-                self.scaler = pickle.load(f)
-            print(f"✓ Scaler carregado: {self.SCALER_PATH}")
+    def register_inputs(self, records: list[dict]) -> None:
+        self.recent_inputs.extend(records)
+        if len(self.recent_inputs) > self.max_recent_inputs:
+            self.recent_inputs = self.recent_inputs[-self.max_recent_inputs :]
 
-            with open(self.CONFIG_PATH, "r") as f:
-                self.config = json.load(f)
-            print(f"Configurações carregadas: {self.CONFIG_PATH}")
-
-
-        except Exception as e:
-            raise
+    def recent_inputs_df(self) -> pd.DataFrame:
+        return pd.DataFrame(self.recent_inputs)
 
     def is_loaded(self) -> bool:
-        """Verifica se todos os artefatos foram carregados"""
-        return all(
-            [self.model is not None, self.scaler is not None, self.config is not None]
-        )
+        return all([self.model is not None, self.config is not None, self.reference_profile is not None])
 
 
 model_config = ModelConfig()
